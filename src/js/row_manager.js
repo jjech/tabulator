@@ -3,11 +3,13 @@ var RowManager = function(table){
 	this.table = table;
 	this.element = this.createHolderElement(); //containing element
 	this.tableElement = this.createTableElement(); //table element
+	this.heightFixer = this.createTableElement(); //table element
 	this.columnManager = null; //hold column manager object
 	this.height = 0; //hold height of table element
 
 	this.firstRender = false; //handle first render
-	this.renderMode = "classic"; //current rendering mode
+	this.renderMode = "virtual"; //current rendering mode
+	this.fixedHeight = false; //current rendering mode
 
 	this.rows = []; //hold row data objects
 	this.activeRows = []; //rows currently available to on display in the table
@@ -291,7 +293,7 @@ RowManager.prototype.scrollToRow = function(row, position, ifVisible){
 
 ////////////////// Data Handling //////////////////
 
-RowManager.prototype.setData = function(data, renderInPosition){
+RowManager.prototype.setData = function(data, renderInPosition, columnsChanged){
 	var self = this;
 
 	return new Promise((resolve, reject)=>{
@@ -304,7 +306,7 @@ RowManager.prototype.setData = function(data, renderInPosition){
 				});
 			}
 		}else{
-			if(this.table.options.autoColumns){
+			if(this.table.options.autoColumns && columnsChanged){
 				this.table.columnManager.generateColumnsFromRowData(data);
 			}
 			this.resetScroll();
@@ -348,6 +350,7 @@ RowManager.prototype._setDataActual = function(data, renderInPosition){
 		self.table.options.dataLoaded.call(this.table, data);
 
 		self.refreshActiveData(false, false, renderInPosition);
+
 	}else{
 		console.error("Data Loading Error - Unable to process data due to invalid data type \nExpecting: array \nReceived: ", typeof data, "\nData:     ", data);
 	}
@@ -363,7 +366,7 @@ RowManager.prototype._wipeElements = function(){
 	}
 
 	this.rows = [];
-}
+};
 
 RowManager.prototype.deleteRow = function(row, blockRedraw){
 	var allIndex = this.rows.indexOf(row),
@@ -1216,8 +1219,16 @@ RowManager.prototype.reRenderInPosition = function(callback){
 };
 
 RowManager.prototype.setRenderMode = function(){
-	if((this.table.element.clientHeight || this.table.options.height) && this.table.options.virtualDom){
+
+	if(this.table.options.virtualDom){
+
 		this.renderMode = "virtual";
+
+		if((this.table.element.clientHeight || this.table.options.height)){
+			this.fixedHeight = true;
+		}else{
+			this.fixedHeight = false;
+		}
 	}else{
 		this.renderMode = "classic";
 	}
@@ -1471,6 +1482,10 @@ RowManager.prototype._virtualRenderFill = function(position, forceMove, offset){
 	}else{
 		this.renderEmptyScroll();
 	}
+
+	if(!this.fixedHeight){
+		this.adjustTableSize();
+	}
 };
 
 //handle vertical scrolling
@@ -1690,16 +1705,34 @@ RowManager.prototype.normalizeHeight = function(){
 
 //adjust the height of the table holder to fit in the Tabulator element
 RowManager.prototype.adjustTableSize = function(){
+	var initialHeight = this.element.clientHeight,
+	modExists;
 
 	if(this.renderMode === "virtual"){
+		let otherHeight = this.columnManager.getElement().offsetHeight + (this.table.footerManager && !this.table.footerManager.external ? this.table.footerManager.getElement().offsetHeight : 0);
+
+		if(this.fixedHeight){
+			this.element.style.minHeight = "calc(100% - " + otherHeight + "px)";
+			this.element.style.height = "calc(100% - " + otherHeight + "px)";
+			this.element.style.maxHeight = "calc(100% - " + otherHeight + "px)";
+		}else{
+			this.element.style.height = "";
+			this.element.style.height = (this.table.element.clientHeight - otherHeight) + "px";
+			this.element.scrollTop = this.scrollTop;
+		}
+
 		this.height = this.element.clientHeight;
 		this.vDomWindowBuffer = this.table.options.virtualDomBuffer || this.height;
 
-		let otherHeight = this.columnManager.getElement().offsetHeight + (this.table.footerManager && !this.table.footerManager.external ? this.table.footerManager.getElement().offsetHeight : 0);
+		//check if the table has changed size when dealing with variable height tables
+		if(!this.fixedHeight && initialHeight != this.element.clientHeight){
+			modExists = this.table.modExists("resizeTable");
 
-		this.element.style.minHeight = "calc(100% - " + otherHeight + "px)";
-		this.element.style.height = "calc(100% - " + otherHeight + "px)";
-		this.element.style.maxHeight = "calc(100% - " + otherHeight + "px)";
+			if((modExists && !this.table.modules.resizeTable.autoResize) || !modExists){
+				this.redraw();
+			}
+		}
+
 	}
 };
 

@@ -1,6 +1,6 @@
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-/* Tabulator v4.5.2 (c) Oliver Folkerd */
+/* Tabulator v4.5.3 (c) Oliver Folkerd */
 
 var Mutator = function Mutator(table) {
 	this.table = table; //hold Tabulator object
@@ -75,7 +75,7 @@ Mutator.prototype.transformRow = function (data, type, updatedData) {
 				if (mutator && updatedData) {
 					value = column.getFieldValue(updatedData);
 
-					if (typeof value !== "undefined") {
+					if (type == "data" || typeof value !== "undefined") {
 						component = column.getComponent();
 						params = typeof mutator.params === "function" ? mutator.params(value, data, type, component) : mutator.params;
 						column.setFieldValue(data, mutator.mutator(value, data, type, params, component));

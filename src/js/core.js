@@ -33,6 +33,8 @@ var Tabulator = function(element, options){
 Tabulator.prototype.defaultOptions = {
 
 	height:false, //height of tabulator
+	minHeight:false, //minimum height of tabulator
+	maxHeight:false, //maximum height of tabulator
 
 	layout:"fitData", ///layout type "fitColumns" | "fitData"
 	layoutColumnsOnNewData:false, //update column widths on setData
@@ -107,6 +109,7 @@ Tabulator.prototype.defaultOptions = {
 	dataTreeStartExpanded:false,
 	dataTreeRowExpanded:function(){}, //row has been expanded
 	dataTreeRowCollapsed:function(){}, //row has been collapsed
+	dataTreeChildColumnCalcs:false, //include visible data tree rows in column calculations
 
 	printAsHtml:false, //enable print as html
 	printFormatter:false, //printing page formatter
@@ -482,6 +485,18 @@ Tabulator.prototype._buildElement = function(){
 		element.style.height = options.height;
 	}
 
+	//set table min height
+	if(options.minHeight !== false){
+		options.minHeight = isNaN(options.minHeight) ? options.minHeight : options.minHeight + "px";
+		element.style.minHeight = options.minHeight;
+	}
+
+	//set table maxHeight
+	if(options.maxHeight !== false){
+		options.maxHeight = isNaN(options.maxHeight) ? options.maxHeight : options.maxHeight + "px";
+		element.style.maxHeight = options.maxHeight;
+	}
+
 	this.columnManager.initialize();
 	this.rowManager.initialize();
 
@@ -642,14 +657,14 @@ Tabulator.prototype._loadInitialData = function(){
 	var self = this;
 
 	if(self.options.pagination && self.modExists("page")){
-		self.modules.page.reset(true);
+		self.modules.page.reset(true, true);
 
 		if(self.options.pagination == "local"){
 			if(self.options.data.length){
-				self.rowManager.setData(self.options.data);
+				self.rowManager.setData(self.options.data, false, true);
 			}else{
 				if((self.options.ajaxURL || self.options.ajaxURLGenerator) && self.modExists("ajax")){
-					self.modules.ajax.loadData().then(()=>{}).catch(()=>{
+					self.modules.ajax.loadData(false, true).then(()=>{}).catch(()=>{
 						if(self.options.paginationInitialPage){
 							self.modules.page.setPage(self.options.paginationInitialPage);
 						}
@@ -657,7 +672,7 @@ Tabulator.prototype._loadInitialData = function(){
 
 					return;
 				}else{
-					self.rowManager.setData(self.options.data);
+					self.rowManager.setData(self.options.data, false, true);
 				}
 			}
 
@@ -668,7 +683,7 @@ Tabulator.prototype._loadInitialData = function(){
 			if(self.options.ajaxURL){
 				self.modules.page.setPage(self.options.paginationInitialPage).then(()=>{}).catch(()=>{});
 			}else{
-				self.rowManager.setData([]);
+				self.rowManager.setData([], false, true);
 			}
 		}
 	}else{
@@ -676,9 +691,9 @@ Tabulator.prototype._loadInitialData = function(){
 			self.rowManager.setData(self.options.data);
 		}else{
 			if((self.options.ajaxURL || self.options.ajaxURLGenerator) && self.modExists("ajax")){
-				self.modules.ajax.loadData().then(()=>{}).catch(()=>{});
+				self.modules.ajax.loadData(false, true).then(()=>{}).catch(()=>{});
 			}else{
-				self.rowManager.setData(self.options.data);
+				self.rowManager.setData(self.options.data, false, true);
 			}
 		}
 	}
@@ -801,16 +816,16 @@ Tabulator.prototype.setData = function(data, params, config){
 		this.modules.ajax.blockActiveRequest();
 	}
 
-	return this._setData(data, params, config);
+	return this._setData(data, params, config, false, true);
 };
 
-Tabulator.prototype._setData = function(data, params, config, inPosition){
+Tabulator.prototype._setData = function(data, params, config, inPosition, columnsChanged){
 	var self = this;
 
 	if(typeof(data) === "string"){
 		if (data.indexOf("{") == 0 || data.indexOf("[") == 0){
 			//data is a json encoded string
-			return self.rowManager.setData(JSON.parse(data), inPosition);
+			return self.rowManager.setData(JSON.parse(data), inPosition, columnsChanged);
 		}else{
 
 			if(self.modExists("ajax", true)){
@@ -825,33 +840,33 @@ Tabulator.prototype._setData = function(data, params, config, inPosition){
 				self.modules.ajax.setUrl(data);
 
 				if(self.options.pagination == "remote" && self.modExists("page", true)){
-					self.modules.page.reset(true);
+					self.modules.page.reset(true, true);
 					return self.modules.page.setPage(1);
 				}else{
 					//assume data is url, make ajax call to url to get data
-					return self.modules.ajax.loadData(inPosition);
+					return self.modules.ajax.loadData(inPosition, columnsChanged);
 				}
 			}
 		}
 	}else{
 		if(data){
 			//asume data is already an object
-			return self.rowManager.setData(data, inPosition);
+			return self.rowManager.setData(data, inPosition, columnsChanged);
 		}else{
 
 			//no data provided, check if ajaxURL is present;
 			if(self.modExists("ajax") && (self.modules.ajax.getUrl || self.options.ajaxURLGenerator)){
 
 				if(self.options.pagination == "remote" && self.modExists("page", true)){
-					self.modules.page.reset(true);
+					self.modules.page.reset(true, true);
 					return self.modules.page.setPage(1);
 				}else{
-					return self.modules.ajax.loadData(inPosition);
+					return self.modules.ajax.loadData(inPosition, columnsChanged);
 				}
 
 			}else{
 				//empty data
-				return self.rowManager.setData([], inPosition);
+				return self.rowManager.setData([], inPosition, columnsChanged);
 			}
 		}
 	}
@@ -904,8 +919,8 @@ Tabulator.prototype.searchData = function(field, type, value){
 
 //get table html
 Tabulator.prototype.getHtml = function(visible, style, config){
-	if(this.modExists("htmlTableExport", true)){
-		return this.modules.htmlTableExport.getHtml(visible, style, config);
+	if(this.modExists("export", true)){
+		return this.modules.export.getHtml(visible, style, config);
 	}
 };
 
@@ -1458,6 +1473,7 @@ Tabulator.prototype.setHeight = function(height){
 	if(this.rowManager.renderMode !== "classic"){
 		this.options.height = isNaN(height) ? height : height + "px";
 		this.element.style.height = this.options.height;
+		this.rowManager.setRenderMode();
 		this.rowManager.redraw();
 	}else{
 		console.warn("setHeight function is not available in classic render mode");
@@ -1782,6 +1798,13 @@ Tabulator.prototype.getCalcResults = function(){
 		return false;
 	}
 };
+
+Tabulator.prototype.recalc = function(){
+	if(this.modExists("columnCalcs", true)){
+		this.modules.columnCalcs.recalcAll(this.rowManager.activeRows);
+	}
+};
+
 
 /////////////// Navigation Management //////////////
 

@@ -1,6 +1,6 @@
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-/* Tabulator v4.5.2 (c) Oliver Folkerd */
+/* Tabulator v4.5.3 (c) Oliver Folkerd */
 
 var Filter = function Filter(table) {
 
@@ -253,7 +253,7 @@ Filter.prototype.generateHeaderFilterElement = function (column, initialValue, r
 
 				typingTimer = setTimeout(function () {
 					success(editorElement.value);
-				}, 300);
+				}, self.table.options.headerFilterLiveFilterDelay);
 			};
 
 			column.modules.filter.headerElement = editorElement;
@@ -319,12 +319,21 @@ Filter.prototype.showHeaderFilterElements = function () {
 	});
 };
 
-//programatically set value of header filter
+//programatically set focus of header filter
 Filter.prototype.setHeaderFilterFocus = function (column) {
 	if (column.modules.filter && column.modules.filter.headerElement) {
 		column.modules.filter.headerElement.focus();
 	} else {
 		console.warn("Column Filter Focus Error - No header filter set on column:", column.getField());
+	}
+};
+
+//programmatically get value of header filter
+Filter.prototype.getHeaderFilterValue = function (column) {
+	if (column.modules.filter && column.modules.filter.headerElement) {
+		return column.modules.filter.headerElement.value;
+	} else {
+		console.warn("Column Filter Error - No header filter set on column:", column.getField());
 	}
 };
 

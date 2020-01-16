@@ -1,4 +1,4 @@
-/* Tabulator v4.5.2 (c) Oliver Folkerd */
+/* Tabulator v4.5.3 (c) Oliver Folkerd */
 
 var Persistence = function Persistence(table) {
 	this.table = table; //hold Tabulator object
@@ -187,7 +187,7 @@ Persistence.prototype.mergeDefinition = function (oldCols, newCols) {
 
 		if (from) {
 
-			if (self.config.columns === true) {
+			if (self.config.columns === true || self.config.columns == undefined) {
 				keys = Object.keys(from);
 				keys.push("width");
 			} else {
@@ -334,7 +334,7 @@ Persistence.prototype.parseColumns = function (columns) {
 		} else {
 			defStore.field = column.getField();
 
-			if (self.config.columns === true) {
+			if (self.config.columns === true || self.config.columns == undefined) {
 				keys = Object.keys(colDef);
 				keys.push("width");
 			} else {

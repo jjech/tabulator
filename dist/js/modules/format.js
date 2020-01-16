@@ -1,6 +1,6 @@
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-/* Tabulator v4.5.2 (c) Oliver Folkerd */
+/* Tabulator v4.5.3 (c) Oliver Folkerd */
 
 var Format = function Format(table) {
 	this.table = table; //hold Tabulator object
@@ -557,6 +557,21 @@ Format.prototype.formatters = {
 		}
 
 		onRendered(function () {
+
+			//handle custom element needed if formatter is to be included in printed/downloaded output
+			if (!(cell instanceof CellComponent)) {
+				var holderEl = document.createElement("div");
+				holderEl.style.position = "absolute";
+				holderEl.style.top = "4px";
+				holderEl.style.bottom = "4px";
+				holderEl.style.left = "4px";
+				holderEl.style.right = "4px";
+
+				element.appendChild(holderEl);
+
+				element = holderEl;
+			}
+
 			element.appendChild(barEl);
 
 			if (legend) {
