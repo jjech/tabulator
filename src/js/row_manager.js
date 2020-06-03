@@ -394,6 +394,8 @@ RowManager.prototype.deleteRow = function(row, blockRedraw){
 		this.reRenderInPosition();
 	}
 
+	this.regenerateRowNumbers();
+
 	this.table.options.rowDeleted.call(this.table, row.getComponent());
 
 	this.table.options.dataEdited.call(this.table, this.getData());
@@ -458,6 +460,7 @@ RowManager.prototype.addRows = function(data, pos, index){
 			this.table.modules.columnCalcs.recalc(this.table.rowManager.activeRows);
 		}
 
+		this.regenerateRowNumbers();
 		resolve(rows);
 	});
 };
@@ -482,7 +485,8 @@ RowManager.prototype.findAddRowPos = function(pos){
 RowManager.prototype.addRowActual = function(data, pos, index, blockRedraw){
 	var row = data instanceof Row ? data : new Row(data || {}, this),
 	top = this.findAddRowPos(pos),
-	dispRows;
+	allIndex = -1,
+	activeIndex, dispRows;
 
 	if(!index && this.table.options.pagination && this.table.options.paginationAddRow == "page"){
 		dispRows = this.getDisplayRows();
@@ -504,7 +508,7 @@ RowManager.prototype.addRowActual = function(data, pos, index, blockRedraw){
 		}
 	}
 
-	if(index){
+	if(typeof index !== "undefined"){
 		index = this.findRow(index);
 	}
 
@@ -534,7 +538,10 @@ RowManager.prototype.addRowActual = function(data, pos, index, blockRedraw){
 	}
 
 	if(index){
-		let allIndex = this.rows.indexOf(index),
+		allIndex = this.rows.indexOf(index);
+	}
+
+	if(index && allIndex > -1){
 		activeIndex = this.activeRows.indexOf(index);
 
 		this.displayRowIterator(function(rows){
@@ -549,9 +556,7 @@ RowManager.prototype.addRowActual = function(data, pos, index, blockRedraw){
 			this.activeRows.splice((top ? activeIndex : activeIndex + 1), 0, row);
 		}
 
-		if(allIndex > -1){
-			this.rows.splice((top ? allIndex : allIndex + 1), 0, row);
-		}
+		this.rows.splice((top ? allIndex : allIndex + 1), 0, row);
 
 	}else{
 
@@ -588,10 +593,12 @@ RowManager.prototype.addRowActual = function(data, pos, index, blockRedraw){
 
 RowManager.prototype.moveRow = function(from, to, after){
 	if(this.table.options.history && this.table.modExists("history")){
-		this.table.modules.history.action("rowMove", from, {pos:this.getRowPosition(from), to:to, after:after});
+		this.table.modules.history.action("rowMove", from, {posFrom:this.getRowPosition(from), posTo:this.getRowPosition(to), to:to, after:after});
 	}
 
 	this.moveRowActual(from, to, after);
+
+	this.regenerateRowNumbers();
 
 	this.table.options.rowMoved.call(this.table, from.getComponent());
 };
@@ -731,7 +738,9 @@ RowManager.prototype.getData = function(active, transform){
 	rows = this.getRows(active);
 
 	rows.forEach(function(row){
-		output.push(row.getData(transform || "data"));
+		if(row.type == "row"){
+			output.push(row.getData(transform || "data"));
+		}
 	});
 
 	return output;
@@ -755,37 +764,36 @@ RowManager.prototype.getDataCount = function(active){
 };
 
 RowManager.prototype._genRemoteRequest = function(){
-	var self = this,
-	table = self.table,
+	var table = this.table,
 	options = table.options,
 	params = {};
 
 	if(table.modExists("page")){
 		//set sort data if defined
 		if(options.ajaxSorting){
-			let sorters = self.table.modules.sort.getSort();
+			let sorters = this.table.modules.sort.getSort();
 
 			sorters.forEach(function(item){
 				delete item.column;
 			});
 
-			params[self.table.modules.page.paginationDataSentNames.sorters] = sorters;
+			params[this.table.modules.page.paginationDataSentNames.sorters] = sorters;
 		}
 
 		//set filter data if defined
 		if(options.ajaxFiltering){
-			let filters = self.table.modules.filter.getFilters(true, true);
+			let filters = this.table.modules.filter.getFilters(true, true);
 
-			params[self.table.modules.page.paginationDataSentNames.filters] = filters;
+			params[this.table.modules.page.paginationDataSentNames.filters] = filters;
 		}
 
 
-		self.table.modules.ajax.setParams(params, true);
+		this.table.modules.ajax.setParams(params, true);
 	}
 
 	table.modules.ajax.sendRequest()
 	.then((data)=>{
-		self.setData(data);
+		this._setDataActual(data, true);
 	})
 	.catch((e)=>{});
 
@@ -908,15 +916,7 @@ RowManager.prototype.refreshActiveData = function(stage, skipStage, renderInPosi
 			}
 
 			//regenerate row numbers for row number formatter if in use
-			if(this.rowNumColumn){
-				this.activeRows.forEach((row) => {
-					var cell = row.getCell(this.rowNumColumn);
-
-					if(cell){
-						cell._generateContents();
-					}
-				});
-			}
+			this.regenerateRowNumbers();
 
 			//generic stage to allow for pipeline trigger after the data manipulation stage
 			case "display":
@@ -1032,6 +1032,19 @@ RowManager.prototype.refreshActiveData = function(stage, skipStage, renderInPosi
 		if(table.modExists("columnCalcs")){
 			table.modules.columnCalcs.recalc(this.activeRows);
 		}
+	}
+};
+
+//regenerate row numbers for row number formatter if in use
+RowManager.prototype.regenerateRowNumbers = function(){
+	if(this.rowNumColumn){
+		this.activeRows.forEach((row) => {
+			var cell = row.getCell(this.rowNumColumn);
+
+			if(cell){
+				cell._generateContents();
+			}
+		});
 	}
 };
 
@@ -1155,6 +1168,10 @@ RowManager.prototype.getRows = function(active){
 		rows = this.activeRows;
 		break;
 
+		case "display":
+		rows = this.table.rowManager.getDisplayRows();
+		break;
+
 		case "visible":
 		rows = this.getVisibleRows(true);
 		break;
@@ -1240,48 +1257,46 @@ RowManager.prototype.getRenderMode = function(){
 };
 
 RowManager.prototype.renderTable = function(){
-	var self = this;
 
-	self.table.options.renderStarted.call(this.table);
+	this.table.options.renderStarted.call(this.table);
 
-	self.element.scrollTop = 0;
+	this.element.scrollTop = 0;
 
-	switch(self.renderMode){
+	switch(this.renderMode){
 		case "classic":
-		self._simpleRender();
+		this._simpleRender();
 		break;
 
 		case "virtual":
-		self._virtualRenderFill();
+		this._virtualRenderFill();
 		break;
 	}
 
-	if(self.firstRender){
-		if(self.displayRowsCount){
-			self.firstRender = false;
-			self.table.modules.layout.layout();
+	if(this.firstRender){
+		if(this.displayRowsCount){
+			this.firstRender = false;
+			this.table.modules.layout.layout();
 		}else{
-			self.renderEmptyScroll();
+			this.renderEmptyScroll();
 		}
 	}
 
-	if(self.table.modExists("frozenColumns")){
-		self.table.modules.frozenColumns.layout();
+	if(this.table.modExists("frozenColumns")){
+		this.table.modules.frozenColumns.layout();
 	}
 
 
-	if(!self.displayRowsCount){
-		if(self.table.options.placeholder){
+	if(!this.displayRowsCount){
+		if(this.table.options.placeholder){
 
-			if(this.renderMode){
-				self.table.options.placeholder.setAttribute("tabulator-render-mode", this.renderMode);
-			}
+			this.table.options.placeholder.setAttribute("tabulator-render-mode", this.renderMode);
 
-			self.getElement().appendChild(self.table.options.placeholder);
+			this.getElement().appendChild(this.table.options.placeholder);
+			this.table.options.placeholder.style.width = this.table.columnManager.getWidth() + "px";
 		}
 	}
 
-	self.table.options.renderComplete.call(this.table);
+	this.table.options.renderComplete.call(this.table);
 };
 
 //simple render on heightless table
@@ -1319,9 +1334,13 @@ RowManager.prototype.checkClassicModeGroupHeaderWidth = function(){
 
 //show scrollbars on empty table div
 RowManager.prototype.renderEmptyScroll = function(){
-	this.tableElement.style.minWidth = this.table.columnManager.getWidth() + "px";
-	this.tableElement.style.minHeight = "1px";
-	this.tableElement.style.visibility = "hidden";
+	if(this.table.options.placeholder){
+		this.tableElement.style.display = "none";
+	}else{
+		this.tableElement.style.minWidth = this.table.columnManager.getWidth() + "px";
+		this.tableElement.style.minHeight = "1px";
+		this.tableElement.style.visibility = "hidden";
+	}
 };
 
 RowManager.prototype._clearVirtualDom = function(){
@@ -1338,6 +1357,7 @@ RowManager.prototype._clearVirtualDom = function(){
 	element.style.paddingBottom = "";
 	element.style.minWidth = "";
 	element.style.minHeight = "";
+	element.style.display = "";
 	element.style.visibility = "";
 
 	this.scrollTop = 0;

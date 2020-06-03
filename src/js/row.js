@@ -211,6 +211,12 @@ Row.prototype.generateElement = function(){
 		self.table.modules.responsiveLayout.initializeRow(this);
 	}
 
+	//set column menu
+	if(self.table.options.rowContextMenu && this.table.modExists("menu")){
+		self.table.modules.menu.initializeRow(this);
+	}
+
+
 	//handle row click events
 	if (self.table.options.rowClick){
 		self.element.addEventListener("click", function(e){
@@ -499,7 +505,7 @@ Row.prototype.deleteCell = function(cell){
 
 Row.prototype.setData = function(data){
 	if(this.table.modExists("mutator")){
-		data = this.table.modules.mutator.transformRow(data, "data", data);
+		data = this.table.modules.mutator.transformRow(data, "data");
 	}
 
 	this.data = data;

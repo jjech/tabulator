@@ -113,6 +113,16 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 				position: relative;
 				padding:$cellPadding;
 
+				//header menu button
+				.tabulator-header-menu-button{
+					padding: 0 8px;
+
+					&:hover{
+						cursor: pointer;
+						opacity: .6;
+					}
+				}
+
 				//hold title of column header
 				.tabulator-col-title{
 					box-sizing:border-box;
@@ -162,9 +172,7 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 					border-top:1px solid $borderColor;
 					overflow: hidden;
 
-					.tabulator-col:last-child{
-						margin-right:-1px;
-					}
+					margin-right:-1px;
 				}
 			}
 
@@ -349,10 +357,8 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 			align-items:center;
 
 			&[tabulator-render-mode="virtual"]{
-				position: absolute;
-				top:0;
-				left:0;
-				height:100%;
+				min-height:100%;
+				min-width:100%;
 			}
 
 			width:100%;
@@ -1190,6 +1196,43 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 	}
 }
 
+.tabulator-menu{
+	position: absolute;
+	display:inline-block;
+	box-sizing:border-box;
+
+	background:$rowBackgroundColor;
+	border:1px solid $rowBorderColor;
+	box-shadow: 0 0 5px 0 rgba(0, 0, 0, .2);
+
+	font-size:$textSize;
+
+	overflow-y:auto;
+	-webkit-overflow-scrolling: touch;
+
+	z-index: 10000;
+
+	.tabulator-menu-item{
+
+		padding:5px 10px;
+
+		user-select: none;
+
+		&.tabulator-menu-item-disabled{
+			opacity: .5;
+		}
+
+		&:not(.tabulator-menu-item-disabled):hover{
+			cursor: pointer;
+			background: $rowAltBackgroundColor;
+		}
+	}
+
+	.tabulator-menu-separator{
+		border-top:1px solid $rowBorderColor;
+	}
+}
+
 .tabulator-edit-select-list{
 	position: absolute;
 	display:inline-block;
@@ -1221,6 +1264,12 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 			color:$headerBackgroundColor;
 			background:$editBoxColor;
 		}
+	}
+
+	.tabulator-edit-select-list-notice{
+		padding:4px;
+
+		text-align: center;
 	}
 
 	.tabulator-edit-select-list-group{

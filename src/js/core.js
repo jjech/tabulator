@@ -49,6 +49,10 @@ Tabulator.prototype.defaultOptions = {
 
 	columns:[],//store for colum header info
 
+	cellHozAlign:"", //horizontal align columns
+	cellVertAlign:"", //certical align columns
+
+
 	data:[], //default starting data
 
 	autoColumns:false, //build columns from data row structure
@@ -84,11 +88,11 @@ Tabulator.prototype.defaultOptions = {
 
 	clipboard:false, //enable clipboard
 	clipboardCopyStyled:true, //formatted table data
-	clipboardCopySelector:"active", //method of chosing which data is coppied to the clipboard
-	clipboardCopyFormatter:"table", //convert data to a clipboard string
+	clipboardCopyConfig:false, //clipboard config
+	clipboardCopyFormatter:false, //DEPRICATED - REMOVE in 5.0
+	clipboardCopyRowRange:"active", //restrict clipboard to visible rows only
 	clipboardPasteParser:"table", //convert pasted clipboard data to rows
 	clipboardPasteAction:"insert", //how to insert pasted data into the table
-	clipboardCopyConfig:false, //clipboard config
 
 	clipboardCopied:function(){}, //data has been copied to the clipboard
 	clipboardPasted:function(){}, //data has been pasted into the table
@@ -110,13 +114,16 @@ Tabulator.prototype.defaultOptions = {
 	dataTreeRowExpanded:function(){}, //row has been expanded
 	dataTreeRowCollapsed:function(){}, //row has been collapsed
 	dataTreeChildColumnCalcs:false, //include visible data tree rows in column calculations
+	dataTreeSelectPropagate:false, //seleccting a parent row selects its children
 
 	printAsHtml:false, //enable print as html
 	printFormatter:false, //printing page formatter
 	printHeader:false, //page header contents
 	printFooter:false, //page footer contents
-	printCopyStyle:true, //enable print as html styling
-	printVisibleRows:true, //restrict print to visible rows only
+	printCopyStyle:true, //DEPRICATED - REMOVE in 5.0
+	printStyled:true, //enable print as html styling
+	printVisibleRows:true,  //DEPRICATED - REMOVE in 5.0
+	printRowRange:"visible", //restrict print to visible rows only
 	printConfig:{}, //print config options
 
 	addRowPos:"bottom", //position to insert blank rows, top|bottom
@@ -210,6 +217,9 @@ Tabulator.prototype.defaultOptions = {
 	scrollToColumnIfVisible:true,
 
 	rowFormatter:false,
+	rowFormatterPrint:null,
+	rowFormatterClipboard:null,
+	rowFormatterHtmlOutput:null,
 
 	placeholder:false,
 
@@ -233,6 +243,7 @@ Tabulator.prototype.defaultOptions = {
 	rowMouseOver:false,
 	rowMouseOut:false,
 	rowMouseMove:false,
+	rowContextMenu:false,
 	rowAdded:function(){},
 	rowDeleted:function(){},
 	rowMoved:function(){},
@@ -339,7 +350,7 @@ Tabulator.prototype.initializeOptions = function(options){
 		}else{
 			if(Array.isArray(this.defaultOptions[key])){
 				this.options[key] = [];
-			}else if(typeof this.defaultOptions[key] === "object"){
+			}else if(typeof this.defaultOptions[key] === "object" && this.defaultOptions[key] !== null){
 				this.options[key] = {};
 			}else{
 				this.options[key] = this.defaultOptions[key];
@@ -378,6 +389,23 @@ Tabulator.prototype._mapDepricatedFunctionality = function(){
 		if(!this.options.persistence){
 			this.options.persistence = {};
 		}
+	}
+
+	if(typeof this.options.clipboardCopyHeader !== "undefined"){
+		this.options.columnHeaders = this.options.clipboardCopyHeader;
+		console.warn("DEPRECATION WARNING - clipboardCopyHeader option has been deprecated, please use the columnHeaders property on the clipboardCopyConfig option");
+	}
+
+	if(this.options.printVisibleRows !== true){
+		console.warn("printVisibleRows option is deprecated, you should now use the printRowRange option");
+
+		this.options.persistence.printRowRange = "active";
+	}
+
+	if(this.options.printCopyStyle !== true){
+		console.warn("printCopyStyle option is deprecated, you should now use the printStyled option");
+
+		this.options.persistence.printStyled = this.options.printCopyStyle;
 	}
 
 	if(this.options.persistentLayout){
@@ -1268,9 +1296,9 @@ Tabulator.prototype.getRowPosition = function(index, active){
 };
 
 //copy table data to clipboard
-Tabulator.prototype.copyToClipboard = function(selector, selectorParams, formatter, formatterParams){
+Tabulator.prototype.copyToClipboard = function(selector){
 	if(this.modExists("clipboard", true)){
-		this.modules.clipboard.copy(selector, selectorParams, formatter, formatterParams);
+		this.modules.clipboard.copy(selector);
 	}
 };
 
@@ -1395,7 +1423,7 @@ Tabulator.prototype.updateColumnDefinition = function(field, definition){
 		var column = this.columnManager.findColumn(field);
 
 		if(column){
-			column.updateDefinition()
+			column.updateDefinition(definition)
 			.then((col) => {
 				resolve(col);
 			}).catch((err) => {

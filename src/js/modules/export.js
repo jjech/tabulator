@@ -5,22 +5,58 @@ var Export = function(table){
 	this.colVisProp = "";
 };
 
-Export.prototype.genereateTable = function(config, style, visible, colVisProp){
+Export.prototype.genereateTable = function(config, style, range, colVisProp){
 	this.cloneTableStyle = style;
 	this.config = config || {};
 	this.colVisProp = colVisProp;
 
-	var headers = this.generateHeaderElements();
-	var body = this.generateBodyElements(visible);
-
 	var table = document.createElement("table");
 	table.classList.add("tabulator-print-table");
-	table.appendChild(headers);
-	table.appendChild(body);
+
+	if(this.config.columnHeaders !== false){
+		table.appendChild(this.generateHeaderElements());
+	}
+
+	table.appendChild(this.generateBodyElements(this.rowLookup(range)));
 
 	this.mapElementStyles(this.table.element, table, ["border-top", "border-left", "border-right", "border-bottom"]);
 
 	return table;
+};
+
+Export.prototype.rowLookup = function(range){
+	var rows = [];
+
+	if(typeof range == "function"){
+		range.call(this.table).forEach((row) =>{
+			row = this.table.rowManager.findRow(row);
+
+			if(row){
+				rows.push(row);
+			}
+		});
+	}else{
+		switch(range){
+			case true:
+			case "visible":
+			rows = this.table.rowManager.getVisibleRows(true);
+			break;
+
+			case "all":
+			rows = this.table.rowManager.rows;
+			break;
+
+			case "selected":
+			rows = this.modules.selectRow.selectedRows;
+			break;
+
+			case "active":
+			default:
+			rows = this.table.rowManager.getDisplayRows();
+		}
+	}
+
+	return Object.assign([], rows);
 };
 
 
@@ -174,8 +210,16 @@ Export.prototype.generateHeaderElements = function(){
 	return headerEl;
 };
 
-Export.prototype.generateBodyElements = function(visible){
-	var oddRow, evenRow, calcRow, firstRow, firstCell, firstGroup, lastCell, styleCells, styleRow, treeElementField;
+Export.prototype.generateBodyElements = function(rows){
+
+};
+
+Export.prototype.generateBodyElements = function(rows){
+	var oddRow, evenRow, calcRow, firstRow, firstCell, firstGroup, lastCell, styleCells, styleRow, treeElementField, rowFormatter;
+
+	//assign row formatter
+	rowFormatter = this.table.options["rowFormatter" + (this.colVisProp.charAt(0).toUpperCase() + this.colVisProp.slice(1))];
+	rowFormatter = rowFormatter !== null ? rowFormatter : this.table.options.rowFormatter;
 
 	//lookup row styles
 	if(this.cloneTableStyle && window.getComputedStyle){
@@ -194,7 +238,6 @@ Export.prototype.generateBodyElements = function(visible){
 
 	var bodyEl = document.createElement("tbody");
 
-	var rows = Object.assign([],  visible ? this.table.rowManager.getVisibleRows(true) : this.table.rowManager.getDisplayRows());
 	var columns = [];
 
 	if(this.config.columnCalcs !== false && this.table.modExists("columnCalcs")){
@@ -237,7 +280,7 @@ Export.prototype.generateBodyElements = function(visible){
 
 
 	rows.forEach((row, i) => {
-		var rowData = row.getData();
+		var rowData = row.getData(this.colVisProp);
 
 		var rowEl = document.createElement("tr");
 		rowEl.classList.add("tabulator-print-table-row");
@@ -301,8 +344,8 @@ Export.prototype.generateBodyElements = function(visible){
 					cellEl.classList.add(className);
 				});
 
-				if(this.table.modExists("format")){
-					value = this.table.modules.format.formatValue(cellWrapper);
+				if(this.table.modExists("format") && this.config.formatCells !== false){
+					value = this.table.modules.format.formatExportValue(cellWrapper, this.colVisProp);
 				}else{
 					switch(typeof value){
 						case "object":
@@ -355,6 +398,17 @@ Export.prototype.generateBodyElements = function(visible){
 			styleRow = row.type == "calc" ? calcRow : (((i % 2) && evenRow) ? evenRow : oddRow);
 
 			this.mapElementStyles(styleRow, rowEl, ["border-top", "border-left", "border-right", "border-bottom", "color", "font-weight", "font-family", "font-size", "background-color"]);
+
+			if(rowFormatter && this.config.formatCells !== false){
+				var rowComponent = row.getComponent();
+
+				rowComponent.getElement = function(){
+					return rowEl;
+				};
+
+				rowFormatter(rowComponent);
+			}
+
 			break;
 		}
 
@@ -369,10 +423,10 @@ Export.prototype.columnVisCheck = function(column){
 };
 
 
-Export.prototype.getHtml = function(visible, style, config){
+Export.prototype.getHtml = function(visible, style, config, colVisProp){
 	var holder = document.createElement("div");
 
-	holder.appendChild(this.genereateTable(config || this.table.options.htmlOutputConfig, style, visible, "htmlOutput"));
+	holder.appendChild(this.genereateTable(config || this.table.options.htmlOutputConfig, style, visible, colVisProp || "htmlOutput"));
 
 	return holder.innerHTML;
 };
