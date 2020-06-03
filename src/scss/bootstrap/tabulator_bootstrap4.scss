@@ -62,6 +62,10 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 		}
 	}
 
+	&[tabulator-layout="fitDataTable"]{
+		display: inline-block;
+	}
+
 	&.tabulator-block-select{
 		user-select: none;
 	}
@@ -184,13 +188,6 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 				}
 			}
 
-			//placeholder element for sortable columns
-			&.ui-sortable-helper{
-				position: absolute;
-				background-color:darken($headerBackgroundColor, 10%) !important;
-				border:1px solid $borderColor;
-			}
-
 			//header filter containing element
 			.tabulator-header-filter{
 				position: relative;
@@ -210,8 +207,8 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 
 				input{
 					&::-ms-clear {
-					  width : 0;
-					  height: 0;
+						width : 0;
+						height: 0;
 					}
 				}
 			}
@@ -614,30 +611,42 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 
 		.tabulator-row{
 			border-color: $table-dark-border-color;
+			background-color: $table-dark-bg;
+			color: $table-dark-color;
 
 			&:hover{
-				background-color: $table-dark-hover-bg !important;
+				background-color: $table-dark-border-color;
+
+				.tabulator-cell{
+					background-color: $table-dark-hover-bg;
+				}
+			}
+
+			&.tabulator-selected{
+				background-color:$rowSelectedBackground;
 			}
 		}
 	}
 
 	&.table-striped{
-		.tabulator-row{
-			&:nth-child(even){
-				background-color: $rowAltBackgroundColor;
+		&:not(.table-dark){
+			.tabulator-row{
+				&:nth-child(even){
+					background-color: $rowAltBackgroundColor;
 
-				&.tabulator-selected{
-					background-color:$rowSelectedBackground;
-				}
+					&.tabulator-selected{
+						background-color:$rowSelectedBackground;
+					}
 
-				&.tabulator-selectable:hover{
-					background-color:$rowHoverBackground;
-					cursor: pointer;
-				}
+					&.tabulator-selectable:hover{
+						background-color:$rowHoverBackground;
+						cursor: pointer;
+					}
 
-				&.tabulator-selected:hover{
-					background-color:$rowSelectedBackgroundHover;
-					cursor: pointer;
+					&.tabulator-selected:hover{
+						background-color:$rowSelectedBackgroundHover;
+						cursor: pointer;
+					}
 				}
 			}
 		}
@@ -645,7 +654,9 @@ $footerActiveColor:$pagination-active-color !default; //footer bottom active tex
 		&.table-dark{
 			.tabulator-row{
 				&:nth-child(even){
-					background-color: $table-dark-accent-bg;
+					.tabulator-cell{
+						background-color: $table-dark-accent-bg;
+					}
 				}
 			}
 		}
@@ -1300,6 +1311,88 @@ body.tabulator-print-fullscreen-hide>*:not(.tabulator-print-fullscreen){
 
 .tabulator-print-table{
 	border-collapse: collapse;
+
+	//row grouping element
+	.tabulator-print-table-group{
+
+		box-sizing:border-box;
+		border-bottom:1px solid #999;
+		border-right:1px solid $rowBorderColor;
+		border-top:1px solid #999;
+		padding:5px;
+		padding-left:10px;
+		background:#fafafa;
+		font-weight:bold;
+
+		min-width: 100%;
+
+		&:hover{
+			cursor:pointer;
+			background-color:rgba(0,0,0,.1);
+		}
+
+		&.tabulator-group-visible{
+			.tabulator-arrow{
+				margin-right:10px;
+				border-left: 6px solid transparent;
+				border-right: 6px solid transparent;
+				border-top: 6px solid $sortArrowActive;
+				border-bottom: 0;
+			}
+		}
+
+		&.tabulator-group-level-1{
+			td{
+				padding-left:30px !important;
+			}
+		}
+
+		&.tabulator-group-level-2{
+			td{
+				padding-left:50px !important;
+			}
+		}
+
+		&.tabulator-group-level-3{
+			td{
+				padding-left:70px !important;
+			}
+		}
+
+		&.tabulator-group-level-4{
+			td{
+				padding-left:90px !important;
+			}
+		}
+
+		&.tabulator-group-level-5{
+			td{
+				padding-left:110px !important;
+			}
+		}
+
+		.tabulator-group-toggle{
+			display: inline-block;
+		}
+
+		//sorting arrow
+		.tabulator-arrow{
+			display: inline-block;
+			width: 0;
+			height: 0;
+			margin-right:16px;
+			border-top: 6px solid transparent;
+			border-bottom: 6px solid transparent;
+			border-right: 0;
+			border-left: 6px solid $sortArrowActive;
+			vertical-align:middle;
+		}
+
+		span{
+			margin-left:10px;
+			color:#666;
+		}
+	}
 
 	.tabulator-data-tree-branch{
 		display:inline-block;

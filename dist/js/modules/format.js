@@ -1,6 +1,6 @@
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-/* Tabulator v4.5.3 (c) Oliver Folkerd */
+/* Tabulator v4.6.3 (c) Oliver Folkerd */
 
 var Format = function Format(table) {
 	this.table = table; //hold Tabulator object
@@ -126,7 +126,7 @@ Format.prototype.sanitizeHTML = function (value) {
 };
 
 Format.prototype.emptyToSpace = function (value) {
-	return value === null || typeof value === "undefined" ? "&nbsp;" : value;
+	return value === null || typeof value === "undefined" || value === "" ? "&nbsp;" : value;
 };
 
 //get formatter for cell
@@ -339,7 +339,7 @@ Format.prototype.formatters = {
 		var newDatetime = moment(value, inputFormat);
 
 		if (newDatetime.isValid()) {
-			return newDatetime.format(outputFormat);
+			return formatterParams.timezone ? newDatetime.tz(formatterParams.timezone).format(outputFormat) : newDatetime.format(outputFormat);
 		} else {
 
 			if (invalid === true) {

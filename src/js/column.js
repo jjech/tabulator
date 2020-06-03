@@ -28,6 +28,11 @@ ColumnComponent.prototype.getCells = function(){
 };
 
 ColumnComponent.prototype.getVisibility = function(){
+	console.warn("getVisibility function is deprecated, you should now use the isVisible function");
+	return this._column.visible;
+};
+
+ColumnComponent.prototype.isVisible = function(){
 	return this._column.visible;
 };
 
@@ -106,7 +111,7 @@ ColumnComponent.prototype.reloadHeaderFilter = function(){
 
 ColumnComponent.prototype.getHeaderFilterValue = function(){
 	if(this._column.table.modExists("filter", true)){
-		this._column.table.modules.filter.getHeaderFilterValue(this._column);
+		return this._column.table.modules.filter.getHeaderFilterValue(this._column);
 	}
 };
 
@@ -140,6 +145,24 @@ ColumnComponent.prototype.getPrevColumn = function(){
 
 ColumnComponent.prototype.updateDefinition = function(updates){
 	return this._column.updateDefinition(updates);
+};
+
+
+ColumnComponent.prototype.getWidth = function(){
+	return this._column.getWidth();
+};
+
+
+ColumnComponent.prototype.setWidth = function(width){
+	if(width === true){
+		return this._column.reinitializeWidth(true);
+	}else{
+		return this._column.setWidth(width);
+	}
+};
+
+ColumnComponent.prototype.validate = function(){
+	return this._column.validate();
 };
 
 
@@ -199,6 +222,8 @@ var Column = function(def, parent){
 	this.widthFixed = false; //user has specified a width for this column
 
 	this.visible = true; //default visible state
+
+	this.component = null;
 
 	this._mapDepricatedFunctionality();
 
@@ -619,8 +644,8 @@ Column.prototype._buildColumnHeader = function(){
 };
 
 Column.prototype._buildColumnHeaderContent = function(){
-	var def = self.definition,
-	table = self.table;
+	var def = this.definition,
+	table = this.table;
 
 	var contentElement = document.createElement("div");
 	contentElement.classList.add("tabulator-col-content");
@@ -1149,6 +1174,13 @@ Column.prototype.delete = function(){
 			});
 		}
 
+		//cancel edit if column is currently being edited
+		if(this.table.modExists("edit")){
+			if(this.table.modules.edit.currentCell.column === this){
+				this.table.modules.edit.cancelEdit();
+			}
+		}
+
 		var cellCount = this.cells.length;
 
 		for(let i = 0; i < cellCount; i++){
@@ -1168,6 +1200,20 @@ Column.prototype.columnRendered = function(){
 		this.titleFormatterRendered();
 	}
 };
+
+
+Column.prototype.validate = function(){
+	var invalid = [];
+
+	this.cells.forEach(function(cell){
+		if(!cell.validate()){
+			invalid.push(cell.getComponent());
+		}
+	});
+
+	return invalid.length ? invalid : true;
+};
+
 
 //////////////// Cell Management /////////////////
 
@@ -1407,5 +1453,9 @@ Column.prototype.defaultOptionList = [
 
 //////////////// Object Generation /////////////////
 Column.prototype.getComponent = function(){
-	return new ColumnComponent(this);
+	if(!this.component){
+		this.component = new ColumnComponent(this);
+	}
+
+	return this.component;
 };

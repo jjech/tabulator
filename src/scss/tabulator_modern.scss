@@ -65,6 +65,10 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 		}
 	}
 
+	&[tabulator-layout="fitDataTable"]{
+		display: inline-block;
+	}
+
 	&.tabulator-block-select{
 		user-select: none;
 	}
@@ -196,12 +200,6 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 				}
 			}
 
-			//placeholder element for sortable columns
-			&.ui-sortable-helper{
-				position: absolute;
-				background-color: darken($headerBackgroundColor, 10%) !important;
-				border:1px solid $headerBorderColor;
-			}
 
 			//header filter containing element
 			.tabulator-header-filter{
@@ -478,6 +476,10 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 
 				.tabulator-cell{
 					background:none;
+
+					&:first-child{
+						border-left: $handleWidth solid transparent;
+					}
 				}
 			}
 
@@ -598,17 +600,28 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 	box-sizing: border-box;
 	min-height:$textSize + ($headerMargin * 2);
 
-	background-color: $handleColor;
+	// background-color: $handleColor;
 
-	padding-left: $handleWidth !important;
+	// padding-left: $handleWidth !important;
 
 	margin-bottom: 2px;
+
+	.tabulator-cell{
+		&:first-child{
+			border-left: $handleWidth solid $handleColor;
+		}
+	}
+
 
 	&:nth-child(even){
 		background-color: $handleColorAlt;
 
 		.tabulator-cell{
 			background-color: $rowAltBackgroundColor;
+
+			&:first-child{
+				border-left: $handleWidth solid $handleColorAlt;
+			}
 		}
 	}
 
@@ -670,7 +683,7 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 		z-index: 10;
 
 		&.tabulator-frozen-left{
-			padding-left: $handleWidth;
+			// padding-left: $handleWidth;
 			border-right:2px solid $rowBorderColor;
 		}
 
@@ -752,6 +765,7 @@ $handleColorAlt: lighten($primary, 10%) !default; //color for even numbered rows
 
 			display: inline-flex;
 			align-items:center;
+			justify-content: center;
 
 			-moz-user-select: none;
 			-khtml-user-select: none;
@@ -1089,6 +1103,90 @@ body.tabulator-print-fullscreen-hide>*:not(.tabulator-print-fullscreen){
 
 .tabulator-print-table{
 	border-collapse: collapse;
+
+	//row grouping element
+	.tabulator-print-table-group{
+
+		box-sizing:border-box;
+		border-bottom:2px solid $primary;
+		border-top:2px solid $primary;
+		padding:5px;
+		padding-left:10px;
+		background:lighten($primary, 20%);
+		font-weight:bold;
+		color:fff;
+		margin-bottom: 2px;
+
+		min-width: 100%;
+
+		&:hover{
+			cursor:pointer;
+			background-color:rgba(0,0,0,.1);
+		}
+
+
+		&.tabulator-group-visible{
+			.tabulator-arrow{
+				margin-right:10px;
+				border-left: 6px solid transparent;
+				border-right: 6px solid transparent;
+				border-top: 6px solid $sortArrowActive;
+				border-bottom: 0;
+			}
+		}
+
+		&.tabulator-group-level-1{
+			td{
+				padding-left:30px !important;
+			}
+		}
+
+		&.tabulator-group-level-2{
+			td{
+				padding-left:50px !important;
+			}
+		}
+
+		&.tabulator-group-level-3{
+			td{
+				padding-left:70px !important;
+			}
+		}
+
+		&.tabulator-group-level-4{
+			td{
+				padding-left:90px !important;
+			}
+		}
+
+		&.tabulator-group-level-5{
+			td{
+				padding-left:110px !important;
+			}
+		}
+
+		.tabulator-group-toggle{
+			display: inline-block;
+		}
+
+		//sorting arrow
+		.tabulator-arrow{
+			display: inline-block;
+			width: 0;
+			height: 0;
+			margin-right:16px;
+			border-top: 6px solid transparent;
+			border-bottom: 6px solid transparent;
+			border-right: 0;
+			border-left: 6px solid $sortArrowActive;
+			vertical-align:middle;
+		}
+
+		span{
+			margin-left:10px;
+			color:$primary;
+		}
+	}
 
 	.tabulator-data-tree-branch{
 		display:inline-block;

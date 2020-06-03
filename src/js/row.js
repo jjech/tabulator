@@ -80,6 +80,10 @@ RowComponent.prototype._getSelf = function(){
 	return this._row;
 };
 
+RowComponent.prototype.validate = function(){
+	return this._row.validate();
+};
+
 RowComponent.prototype.freeze = function(){
 	if(this._row.table.modExists("frozenRows", true)){
 		this._row.table.modules.frozenRows.freezeRow(this._row);
@@ -163,6 +167,8 @@ var Row = function(data, parent, type = "row"){
 	this.outerHeight = 0; //holde lements outer height
 	this.initialized = false; //element has been rendered
 	this.heightInitialized = false; //element has resized cells to fit
+
+	this.component = null;
 
 	this.setData(data);
 	this.generateElement();
@@ -574,7 +580,7 @@ Row.prototype.updateData = function(updatedData){
 
 		//Partial reinitialization if visible
 		if(visible){
-			this.normalizeHeight();
+			this.normalizeHeight(true);
 
 			if(this.table.options.rowFormatter){
 				this.table.options.rowFormatter(this.getComponent());
@@ -706,6 +712,18 @@ Row.prototype.moveToRow = function(to, before){
 };
 
 
+Row.prototype.validate = function(){
+	var invalid = [];
+
+	this.cells.forEach(function(cell){
+		if(!cell.validate()){
+			invalid.push(cell.getComponent());
+		}
+	});
+
+	return invalid.length ? invalid : true;
+};
+
 ///////////////////// Actions  /////////////////////
 
 Row.prototype.delete = function(){
@@ -746,6 +764,13 @@ Row.prototype.deleteActual = function(blockRedraw){
 	//deselect row if it is selected
 	if(this.table.modExists("selectRow")){
 		this.table.modules.selectRow._deselectRow(this, true);
+	}
+
+	//cancel edit if row is currently being edited
+	if(this.table.modExists("edit")){
+		if(this.table.modules.edit.currentCell.row === this){
+			this.table.modules.edit.cancelEdit();
+		}
 	}
 
 	// if(this.table.options.dataTree && this.table.modExists("dataTree")){
@@ -808,5 +833,9 @@ Row.prototype.getGroup = function(){
 
 //////////////// Object Generation /////////////////
 Row.prototype.getComponent = function(){
-	return new RowComponent(this);
+	if(!this.component){
+		this.component = new RowComponent(this);
+	}
+
+	return this.component;
 };

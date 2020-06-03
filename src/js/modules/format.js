@@ -125,7 +125,7 @@ Format.prototype.sanitizeHTML = function(value){
 };
 
 Format.prototype.emptyToSpace = function(value){
-	return value === null || typeof value === "undefined" ? "&nbsp;" : value;
+	return value === null || typeof value === "undefined" || value === "" ? "&nbsp;" : value;
 };
 
 //get formatter for cell
@@ -336,7 +336,7 @@ Format.prototype.formatters = {
 		var newDatetime = moment(value, inputFormat);
 
 		if(newDatetime.isValid()){
-			return newDatetime.format(outputFormat);
+			return formatterParams.timezone ? newDatetime.tz(formatterParams.timezone).format(outputFormat) : newDatetime.format(outputFormat);
 		}else{
 
 			if(invalid === true){

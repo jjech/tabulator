@@ -4,6 +4,7 @@ var Edit = function(table){
 	this.mouseClick = false; //hold mousedown state to prevent click binding being overriden by editor opening
 	this.recursionBlock = false; //prevent focus recursion
 	this.invalidEdit = false;
+	this.editedCells = [];
 };
 
 
@@ -69,7 +70,7 @@ Edit.prototype.getCurrentCell = function(){
 	return this.currentCell ? this.currentCell.getComponent() : false;
 };
 
-Edit.prototype.clearEditor = function(){
+Edit.prototype.clearEditor = function(cancel){
 	var cell = this.currentCell,
 	cellEl;
 
@@ -79,7 +80,13 @@ Edit.prototype.clearEditor = function(){
 		this.currentCell = false;
 
 		cellEl = cell.getElement();
-		cellEl.classList.remove("tabulator-validation-fail");
+
+		if(cancel){
+			cell.validate();
+		}else{
+			cellEl.classList.remove("tabulator-validation-fail");
+		}
+
 		cellEl.classList.remove("tabulator-editing");
 		while(cellEl.firstChild) cellEl.removeChild(cellEl.firstChild);
 
@@ -93,8 +100,9 @@ Edit.prototype.cancelEdit = function(){
 		var cell = this.currentCell;
 		var component = this.currentCell.getComponent();
 
-		this.clearEditor();
+		this.clearEditor(true);
 		cell.setValueActual(cell.getValue());
+		cell.cellRendered();
 
 		if(cell.column.cellEvents.cellEditCancelled){
 			cell.column.cellEvents.cellEditCancelled.call(this.table, component);
@@ -113,7 +121,7 @@ Edit.prototype.bindEditor = function(cell){
 
 	element.addEventListener("click", function(e){
 		if(!element.classList.contains("tabulator-editing")){
-			element.focus();
+			element.focus({preventScroll: true});
 		}
 	});
 
@@ -131,7 +139,7 @@ Edit.prototype.bindEditor = function(cell){
 Edit.prototype.focusCellNoEvent = function(cell, block){
 	this.recursionBlock = true;
 	if(!(block && this.table.browser === "ie")){
-		cell.getElement().focus();
+		cell.getElement().focus({preventScroll: true});
 	}
 	this.recursionBlock = false;
 };
@@ -140,6 +148,25 @@ Edit.prototype.editCell = function(cell, forceEdit){
 	this.focusCellNoEvent(cell);
 	this.edit(cell, false, forceEdit);
 };
+
+
+Edit.prototype.focusScrollAdjust = function(cell){
+	if(this.table.rowManager.getRenderMode() == "virtual"){
+		var topEdge = this.table.rowManager.element.scrollTop,
+		bottomEdge = this.table.rowManager.element.clientHeight + this.table.rowManager.element.scrollTop,
+		rowEl = cell.row.getElement(),
+		offset = rowEl.offsetTop;
+
+		if(rowEl.offsetTop < topEdge){
+			this.table.rowManager.element.scrollTop -= (topEdge - rowEl.offsetTop);
+		}else{
+			if(rowEl.offsetTop + rowEl.offsetHeight  > bottomEdge){
+				this.table.rowManager.element.scrollTop += (rowEl.offsetTop + rowEl.offsetHeight - bottomEdge);
+			}
+		}
+	}
+};
+
 
 Edit.prototype.edit = function(cell, e, forceEdit){
 	var self = this,
@@ -161,16 +188,31 @@ Edit.prototype.edit = function(cell, e, forceEdit){
 		if(self.currentCell === cell){
 			var valid = true;
 
-			if(cell.column.modules.validate && self.table.modExists("validate")){
-				valid = self.table.modules.validate.validate(cell.column.modules.validate, cell.getComponent(), value);
+			if(cell.column.modules.validate && self.table.modExists("validate") && self.table.options.validationMode != "manual"){
+				valid = self.table.modules.validate.validate(cell.column.modules.validate, cell, value);
 			}
 
-			if(valid === true){
+			if(valid === true || self.table.options.validationMode === "highlight"){
 				self.clearEditor();
 				cell.setValue(value, true);
 
+				if(!cell.modules.edit){
+					cell.modules.edit = {};
+				}
+
+				cell.modules.edit.edited = true;
+
+				if(self.editedCells.indexOf(cell) == -1){
+					self.editedCells.push(cell);
+				}
+
 				if(self.table.options.dataTree && self.table.modExists("dataTree")){
 					self.table.modules.dataTree.checkForRestyle(cell);
+				}
+
+				if(valid !== true){
+					element.classList.add("tabulator-validation-fail");
+					return false;
 				}
 
 				return true;
@@ -225,6 +267,8 @@ Edit.prototype.edit = function(cell, e, forceEdit){
 			self.cancelEdit();
 
 			self.currentCell = cell;
+
+			this.focusScrollAdjust(cell);
 
 			component = cell.getComponent();
 
@@ -372,6 +416,33 @@ Edit.prototype.maskInput = function(el, options){
 	}
 };
 
+
+Edit.prototype.getEditedCells = function(){
+	var output = [];
+
+	this.editedCells.forEach((cell) => {
+		output.push(cell.getComponent());
+	});
+
+	return output;
+};
+
+
+Edit.prototype.clearEdited = function(cell){
+	var editIndex;
+
+	if(cell.modules.edit && cell.modules.edit.edited){
+		cell.modules.validate.invalid = false;
+
+		editIndex = this.editedCells.indexOf(cell);
+
+		if(editIndex > -1){
+			this.editedCells.splice(editIndex, 1);
+		}
+	}
+};
+
+
 //default data editors
 Edit.prototype.editors = {
 
@@ -402,13 +473,12 @@ Edit.prototype.editors = {
 		input.value = typeof cellValue !== "undefined" ? cellValue : "";
 
 		onRendered(function(){
-			input.focus();
+			input.focus({preventScroll: true});
 			input.style.height = "100%";
 		});
 
 		function onChange(e){
 			if(((cellValue === null || typeof cellValue === "undefined") && input.value !== "") || input.value !== cellValue){
-
 				if(success(input.value)){
 					cellValue = input.value; //persist value if successfully validated incase editor is used as header filter
 				}
@@ -475,7 +545,7 @@ Edit.prototype.editors = {
         input.value = value;
 
         onRendered(function(){
-        	input.focus();
+        	input.focus({preventScroll: true});
         	input.style.height = "100%";
         });
 
@@ -591,7 +661,7 @@ Edit.prototype.editors = {
 			//submit new value on blur
 			input.removeEventListener("blur", blurFunc);
 
-			input.focus();
+			input.focus({preventScroll: true});
 			input.style.height = "100%";
 
 			//submit new value on blur
@@ -682,7 +752,7 @@ Edit.prototype.editors = {
     	input.value = cellValue;
 
     	onRendered(function () {
-    		input.focus();
+    		input.focus({preventScroll: true});
     		input.style.height = "100%";
     	});
 
@@ -741,7 +811,7 @@ Edit.prototype.editors = {
 		this.table.rowManager.element.addEventListener("scroll", cancelItem);
 
 		if(Array.isArray(editorParams) || (!Array.isArray(editorParams) && typeof editorParams === "object" && !editorParams.values)){
-			console.warn("DEPRECATION WANRING - values for the select editor must now be passed into the values property of the editorParams object, not as the editorParams object");
+			console.warn("DEPRECATION WARNING - values for the select editor must now be passed into the values property of the editorParams object, not as the editorParams object");
 			editorParams = {values:editorParams};
 		}
 
@@ -964,6 +1034,16 @@ Edit.prototype.editors = {
 
 				listEl.style.top = (offset.top + cellEl.offsetHeight) + "px";
 				listEl.style.left = offset.left + "px";
+
+
+				listEl.addEventListener("mousedown", function(e){
+					blurable = false;
+
+					setTimeout(function(){
+						blurable = true;
+					}, 10);
+				});
+
 				document.body.appendChild(listEl);
 			}
 		}
@@ -1080,7 +1160,7 @@ Edit.prototype.editors = {
 
 		onRendered(function(){
 			input.style.height = "100%";
-			input.focus();
+			input.focus({preventScroll: true});
 		});
 
 		return input;
@@ -1099,7 +1179,7 @@ Edit.prototype.editors = {
 		allItems = [],
 		displayItems = [],
 		values = [],
-		currentItem = {},
+		currentItem = false,
 		blurable = true;
 
 		this.table.rowManager.element.addEventListener("scroll", cancelItem);
@@ -1124,6 +1204,14 @@ Edit.prototype.editors = {
 
 		//style list element
 		listEl.classList.add("tabulator-edit-select-list");
+
+		listEl.addEventListener("mousedown", function(e){
+			blurable = false;
+
+			setTimeout(function(){
+				blurable = true;
+			}, 10);
+		});
 
 		function getUniqueColumnValues(field){
 			var output = {},
@@ -1231,7 +1319,7 @@ Edit.prototype.editors = {
 			}
 		}
 
-		function parseItems(inputValues, curentValue){
+		function parseItems(inputValues){
 			var itemList = [];
 
 			if(Array.isArray(inputValues)){
@@ -1287,12 +1375,12 @@ Edit.prototype.editors = {
 					el.tabIndex = 0;
 					el.innerHTML = item.title;
 
-					el.addEventListener("click", function(){
+					el.addEventListener("click", function(e){
 						setCurrentItem(item);
 						chooseItem();
 					});
 
-					el.addEventListener("mousedown", function(){
+					el.addEventListener("mousedown", function(e){
 						blurable = false;
 
 						setTimeout(function(){
@@ -1494,7 +1582,7 @@ Edit.prototype.editors = {
 
 		onRendered(function(){
 			input.style.height = "100%";
-			input.focus();
+			input.focus({preventScroll: true});
 		});
 
 		if(editorParams.mask){
@@ -1748,13 +1836,16 @@ Edit.prototype.editors = {
 		element.addEventListener("keydown", function(e){
 			switch(e.keyCode){
 				case 39: //right arrow
+				e.preventDefault();
 				bar.style.width = (bar.clientWidth + element.clientWidth/100) + "px";
 				break;
 
 				case 37: //left arrow
+				e.preventDefault();
 				bar.style.width = (bar.clientWidth - element.clientWidth/100) + "px";
 				break;
 
+				case 9: //tab
 				case 13: //enter
 				updateValue();
 				break;
@@ -1805,7 +1896,7 @@ Edit.prototype.editors = {
 
 		if(this.table.browser != "firefox"){ //prevent blur issue on mac firefox
 			onRendered(function(){
-				input.focus();
+				input.focus({preventScroll: true});
 			});
 		}
 

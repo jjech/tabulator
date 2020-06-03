@@ -216,9 +216,10 @@ Sort.prototype.findSorter = function(column){
 
 //work through sort list sorting data
 Sort.prototype.sort = function(data){
-	var self = this, lastSort, sortList;
-
-	sortList = this.table.options.sortOrderReverse ? self.sortList.slice().reverse() : self.sortList;
+	var self = this,
+	sortList = this.table.options.sortOrderReverse ? self.sortList.slice().reverse() : self.sortList,
+	sortListActual = [],
+	lastSort;
 
 	if(self.table.options.dataSorting){
 		self.table.options.dataSorting.call(self.table, self.getSort());
@@ -228,20 +229,30 @@ Sort.prototype.sort = function(data){
 
 	if(!self.table.options.ajaxSorting){
 
+		//build list of valid sorters and trigger column specific callbacks before sort begins
 		sortList.forEach(function(item, i){
+			var sortObj = item.column.modules.sort;
 
-			if(item.column && item.column.modules.sort){
+			if(item.column && sortObj){
 
 				//if no sorter has been defined, take a guess
-				if(!item.column.modules.sort.sorter){
-					item.column.modules.sort.sorter = self.findSorter(item.column);
+				if(!sortObj.sorter){
+					sortObj.sorter = self.findSorter(item.column);
 				}
 
-				self._sortItem(data, item.column, item.dir, sortList, i);
+				item.params = typeof sortObj.params === "function" ? sortObj.params(item.column.getComponent(), item.dir) : sortObj.params;
+
+				sortListActual.push(item);
 			}
 
 			self.setColumnHeader(item.column, item.dir);
 		});
+
+		//sort data
+		if (sortListActual.length) {
+			self._sortItems(data, sortListActual);
+		}
+
 	}else{
 		sortList.forEach(function(item, i){
 			self.setColumnHeader(item.column, item.dir);
@@ -271,23 +282,19 @@ Sort.prototype.setColumnHeader = function(column, dir){
 };
 
 //sort each item in sort list
-Sort.prototype._sortItem = function(data, column, dir, sortList, i){
-	var self = this;
+Sort.prototype._sortItems = function(data, sortList){
+	var sorterCount = sortList.length - 1;
 
-	var params = typeof column.modules.sort.params === "function" ? column.modules.sort.params(column.getComponent(), dir) : column.modules.sort.params;
+	data.sort((a, b) => {
+		var result;
 
-	data.sort(function(a, b){
+		for(var i = sorterCount; i>= 0; i--){
+			let sortItem = sortList[i];
 
-		var result = self._sortRow(a, b, column, dir, params);
+			result = this._sortRow(a, b, sortItem.column, sortItem.dir, sortItem.params);
 
-		//if results match recurse through previous searchs to be sure
-		if(result === 0 && i){
-			for(var j = i-1; j>= 0; j--){
-				result = self._sortRow(a, b, sortList[j].column, sortList[j].dir, params);
-
-				if(result !== 0){
-					break;
-				}
+			if(result !== 0){
+				break;
 			}
 		}
 
